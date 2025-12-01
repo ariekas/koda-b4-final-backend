@@ -10,7 +10,7 @@ import (
 func AuthRoutes(r *gin.RouterGroup, pool *pgxpool.Pool){
 	authController := handler.AuthController{Pool: pool}
 
-	auth := r.Group("")
+	auth := r.Group("/")
 	{
 		auth.POST("/register", authController.Register)
 	}
