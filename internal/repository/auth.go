@@ -17,6 +17,10 @@ func CreateUser(ctx *gin.Context, pool *pgxpool.Pool) (models.Register, error) {
 	var checkEmail bool
 	now := time.Now()
 
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		return models.Register{}, fmt.Errorf("invalid request body: %w", err)
+	}
+	
 	hash, err := argon.HashEncoded([]byte(input.Password))
 
 	if err != nil {
