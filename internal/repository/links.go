@@ -150,3 +150,29 @@ func DetailLink(pool *pgxpool.Pool, slug string, userId int) (*models.ShortLink,
 
     return &l, nil
 }
+
+func UpdateLink(pool *pgxpool.Pool, userId int, slug string, originalUrl string, customSlug *string) (*models.ShortLink, error) {
+    link, err := DetailLink(pool, slug, userId)
+    if err != nil {
+        return nil, err
+    }
+
+    if originalUrl != "" {
+        link.OriginalUrl = originalUrl
+    }
+
+    if customSlug != nil && *customSlug != "" {
+        link.ShortUrl = *customSlug
+    }
+
+    _, err = pool.Exec(context.Background(),
+        "UPDATE short_links SET originalurl=$1, shorturl=$2, updated_at=$3 WHERE id=$4",
+        link.OriginalUrl, link.ShortUrl, time.Now(), link.Id,
+    )
+
+    if err != nil {
+        return nil, err
+    }
+
+    return link, nil
+}

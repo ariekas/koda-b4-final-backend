@@ -93,3 +93,26 @@ func (sl ShortLinkController) Redirect(ctx *gin.Context) {
 
     ctx.Redirect(302, link.OriginalUrl)
 }
+
+func (sl ShortLinkController) Update(ctx *gin.Context) {
+    slug := ctx.Param("slug")
+    userId := ctx.GetInt("userId")
+
+    var body struct {
+        OriginalUrl string  `json:"originalUrl"`
+        CustomSlug  *string `json:"customSlug"`
+    }
+
+    if err := ctx.ShouldBindJSON(&body); err != nil {
+        ctx.JSON(401, gin.H{"success": false, "message": "invalid request body"})
+        return
+    }
+
+    link, err := repository.UpdateLink(sl.Pool, userId, slug, body.OriginalUrl, body.CustomSlug)
+    if err != nil {
+        ctx.JSON(401, gin.H{"success": false, "message": err.Error()})
+        return
+    }
+
+    ctx.JSON(201, gin.H{"success": true, "message": "Short link updated", "data": link})
+}

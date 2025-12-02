@@ -16,5 +16,6 @@ func LinkRoutes(r *gin.RouterGroup, pool *pgxpool.Pool) {
 		link.POST("/", linkController.Create)
 		link.GET("", linkController.GetAll)
 		link.GET("/:slug", linkController.DetailShortCode) 
+		link.PUT("/:slug", linkController.Update)
 	}
 }
