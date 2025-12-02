@@ -17,6 +17,11 @@ func CreateUser(ctx *gin.Context, pool *pgxpool.Pool) (models.Register, error) {
 	var checkEmail bool
 	now := time.Now()
 
+	err := ctx.BindJSON(&input)
+	if err != nil {
+		return  models.Register{}, fmt.Errorf("error failed type json, %w", err)
+	}
+
 	hash, err := argon.HashEncoded([]byte(input.Password))
 
 	if err != nil {
@@ -41,5 +46,30 @@ func CreateUser(ctx *gin.Context, pool *pgxpool.Pool) (models.Register, error) {
 		UpdatedAt: now,
 	}
 
+	return user, nil
+}
+
+func FindUserEmail(pool *pgxpool.Pool, email string) (models.Register, error) {
+	var user models.Register
+
+	row := pool.QueryRow(context.Background(),`
+		SELECT id, username, email, password,role, created_at, updated_at
+		FROM users
+		WHERE users.email = $1
+	`,email)
+
+	err := row.Scan(
+		&user.Id,
+		&user.Username,
+		&user.Email,
+		&user.Password,
+		&user.Role,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		return models.Register{}, fmt.Errorf("no user found with this email address, %w", err)
+	}
 	return user, nil
 }
