@@ -2,6 +2,7 @@ package main
 
 import (
 	"shortlink/internal/database"
+	"shortlink/internal/handler"
 	"shortlink/internal/models"
 	"shortlink/internal/routes"
 
@@ -20,7 +21,11 @@ func main(){
 		})
 	})
 
+	slc := handler.ShortLinkController{Pool: database}
+
+	router.GET("/:slug", slc.Redirect)
+
 	routes.MainApiRoutes(router, database)
 
-	router.Run(":3231")
+	router.Run(":8082")
 }

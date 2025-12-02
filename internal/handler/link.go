@@ -70,3 +70,26 @@ func (sl ShortLinkController) DetailShortCode(ctx *gin.Context) {
 
     ctx.JSON(201, gin.H{"success": true, "data": link})
 }
+
+func (sl ShortLinkController) Redirect(ctx *gin.Context) {
+    slug := ctx.Param("slug")
+
+    link, err := repository.FindShortLink(sl.Pool, slug)
+    if err != nil {
+        ctx.JSON(500, gin.H{
+            "success": false,
+            "message": "Internal server error",
+        })
+        return
+    }
+
+    if link == nil {
+        ctx.JSON(404, gin.H{
+            "success": false,
+            "message": "Short link not found",
+        })
+        return
+    }
+
+    ctx.Redirect(302, link.OriginalUrl)
+}
