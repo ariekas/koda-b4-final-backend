@@ -73,3 +73,9 @@ func FindUserEmail(pool *pgxpool.Pool, email string) (models.Register, error) {
 	}
 	return user, nil
 }
+
+func SaveSession(pool *pgxpool.Pool, s models.Session) error {
+	_, err := pool.Exec(context.Background(), "INSERT INTO sessions (id, userid, refreshtoken, created_at, expires_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)", s.Id, s.UserId, s.RefreshToken, s.CreatedAt, s.ExpiresAt, s.UpdatedAt)
+	
+	return err
+}

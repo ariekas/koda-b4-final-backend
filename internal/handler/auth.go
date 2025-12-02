@@ -6,6 +6,7 @@ import (
 	"shortlink/internal/middelware"
 	"shortlink/internal/models"
 	"shortlink/internal/repository"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -35,16 +36,14 @@ func (ac AuthController) Register(ctx *gin.Context){
 
 func (ac AuthController) Login(ctx *gin.Context) {
 	var input models.InputLogin
-
+	now := time.Now()
 
 	err := ctx.BindJSON(&input)
-
-	jwtToken := config.GetJwtToken()
-
 	if err != nil {
 		fmt.Println("Error : Failed type much json")
 	}
 
+	jwtToken := config.GetJwtToken()
 
 	users, err := repository.FindUserEmail(ac.Pool, input.Email)
 	if err != nil {
@@ -55,6 +54,7 @@ func (ac AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
+	
 	if !middelware.VerifPassword(users.Password, input.Password) {
 		ctx.JSON(401, models.Response{
 			Success: false,
@@ -68,12 +68,37 @@ func (ac AuthController) Login(ctx *gin.Context) {
 		fmt.Println("Error: Failed to generate token")
 	} 
 
-	
+	refreshToken, hash, err := middelware.GenerateRefreshToken()
+	if err != nil {
+		ctx.JSON(401, models.Response{
+			Success: false,
+			Message: err.Error(),
+		})
+	}
+
+	session := models.Session{
+		UserId: users.Id,
+		RefreshToken: hash,
+		CreatedAt: now,
+		ExpiresAt: now.Add(24 * time.Hour),
+		UpdatedAt: now,
+	}
+
+	err = repository.SaveSession(ac.Pool, session)
+	if err != nil {
+		ctx.JSON(401, models.Response{
+			Success: false,
+			Message: "failed to save sesstion",
+		})
+		return
+	}
+
 	ctx.JSON(201, models.Response{
 		Success: true,
 		Message: "Login success",
 		Data: gin.H{
-			"token": token,
+			"accessToken": token,
+			"refreshToken" : refreshToken,
 			"role":  users.Role,
 		},
 	})
