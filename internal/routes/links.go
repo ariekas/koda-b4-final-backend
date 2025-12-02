@@ -17,5 +17,6 @@ func LinkRoutes(r *gin.RouterGroup, pool *pgxpool.Pool) {
 		link.GET("", linkController.GetAll)
 		link.GET("/:slug", linkController.DetailShortCode) 
 		link.PUT("/:slug", linkController.Update)
+		link.DELETE("/:slug", linkController.Delete)
 	}
 }

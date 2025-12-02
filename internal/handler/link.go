@@ -116,3 +116,16 @@ func (sl ShortLinkController) Update(ctx *gin.Context) {
 
     ctx.JSON(201, gin.H{"success": true, "message": "Short link updated", "data": link})
 }
+
+func (sl ShortLinkController) Delete(ctx *gin.Context) {
+    slug := ctx.Param("slug")
+    userId := ctx.GetInt("userId")
+
+    err := repository.DeleteLink(sl.Pool, userId, slug)
+    if err != nil {
+        ctx.JSON(401, gin.H{"success": false, "message": err.Error()})
+        return
+    }
+
+    ctx.JSON(201, gin.H{"success": true, "message": "Short link deleted"})
+}

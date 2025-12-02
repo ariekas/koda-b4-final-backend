@@ -176,3 +176,11 @@ func UpdateLink(pool *pgxpool.Pool, userId int, slug string, originalUrl string,
 
     return link, nil
 }
+
+func DeleteLink(pool *pgxpool.Pool, userId int, slug string) error {
+    _, err := pool.Exec(context.Background(),
+        "DELETE FROM short_links WHERE shorturl=$1 AND userid=$2",
+        slug, userId,
+    )
+    return err
+}
