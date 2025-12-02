@@ -7,10 +7,18 @@ import (
 
 func MainApiRoutes(r *gin.Engine, pool *pgxpool.Pool){
 	
-		auth := r.Group("/auth")
-		{
-			AuthRoutes(auth, pool)
-		}
+	api := r.Group("/api/v1")
+    {
+        auth := api.Group("/auth")
+        {
+            AuthRoutes(auth, pool)
+        }
+
+        links := api.Group("/links")
+        {
+            LinkRoutes(links, pool)
+        }
+    }
 	
 	
 }
