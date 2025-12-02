@@ -1,26 +1,29 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
+var RedisClient *redis.Client
 
-func Redis()  *redis.Client {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("faield to get env", err)
-	}
+func InitRedis() {
+	godotenv.Load()
 
 	opt, err := redis.ParseURL(os.Getenv("REDIS_URL"))
-
 	if err != nil {
-		fmt.Println("Failed to parse Redis URL", err)
+		panic("Failed to parse Redis URL: " + err.Error())
 	}
 
-	fmt.Println(" Redis connected successfully")
+	RedisClient = redis.NewClient(opt)
 
-    return redis.NewClient(opt)
+	_, err = RedisClient.Ping(context.Background()).Result()
+	if err != nil {
+		panic("Failed to connect to Redis: " + err.Error())
+	}
+
+	fmt.Println("Redis connected successfully")
 }

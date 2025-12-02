@@ -1,6 +1,7 @@
 package main
 
 import (
+	"shortlink/internal/config"
 	"shortlink/internal/database"
 	"shortlink/internal/handler"
 	"shortlink/internal/models"
@@ -11,6 +12,7 @@ import (
 
 func main(){
 	database := database.Database()
+	config.InitRedis()
 	
 	router := gin.Default()
 
