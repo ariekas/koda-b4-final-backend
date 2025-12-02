@@ -4,6 +4,7 @@ import (
 	"shortlink/internal/config"
 	"shortlink/internal/database"
 	"shortlink/internal/handler"
+	"shortlink/internal/middelware"
 	"shortlink/internal/models"
 	"shortlink/internal/routes"
 
@@ -15,6 +16,10 @@ func main(){
 	config.InitRedis()
 	
 	router := gin.Default()
+
+	router.MaxMultipartMemory = 8 << 20
+	router.Use(middelware.Cors())
+	router.Use(middelware.AllowPreflight)
 
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(201, models.Response{
