@@ -7,7 +7,8 @@ import (
 )
 
 func InvalidateRedis(pattern string) {
-	rdb := config.Redis()
+
+	var rdb = config.RedisClient
 
 	iter := rdb.Scan(context.Background(), 0, pattern, 0).Iterator()
 	for iter.Next(context.Background()) {
