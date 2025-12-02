@@ -119,3 +119,34 @@ func CreateShortLink(pool *pgxpool.Pool, userId int, originalUrl string) (*model
 
     return &link, nil
 }
+
+func ListLink(pool *pgxpool.Pool, userId int) ([]models.ShortLink, error) {
+    rows, err := pool.Query(context.Background(), "SELECT id, userid, originalurl, shorturl, created_at, updated_at FROM short_links WHERE userid=$1", userId)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var links []models.ShortLink
+    for rows.Next() {
+        var l models.ShortLink
+        rows.Scan(&l.Id, &l.UserId, &l.OriginalUrl, &l.ShortUrl, &l.CreatedAt, &l.UpdatedAt)
+        links = append(links, l)
+    }
+
+    return links, nil
+}
+
+func DetailLink(pool *pgxpool.Pool, slug string, userId int) (*models.ShortLink, error) {
+    var l models.ShortLink
+    err := pool.QueryRow(context.Background(),
+        "SELECT id, userid, originalurl, shorturl, created_at, updated_at FROM short_links WHERE shorturl=$1 AND userid=$2",
+        slug, userId,
+    ).Scan(&l.Id, &l.UserId, &l.OriginalUrl, &l.ShortUrl, &l.CreatedAt, &l.UpdatedAt)
+
+    if err != nil {
+        return nil, fmt.Errorf("link not found")
+    }
+
+    return &l, nil
+}

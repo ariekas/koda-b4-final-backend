@@ -43,3 +43,30 @@ func (slc ShortLinkController) Create(ctx *gin.Context) {
         },
     })
 }
+
+
+func (sl ShortLinkController) GetAll(ctx *gin.Context) {
+    userId := ctx.GetInt("userId")
+
+    links, err := repository.ListLink(sl.Pool, userId)
+    if err != nil {
+        ctx.JSON(400, gin.H{"success": false, "message": err.Error()})
+        return
+    }
+
+    ctx.JSON(201, gin.H{"success": true, "data": links})
+}
+
+
+func (sl ShortLinkController) DetailShortCode(ctx *gin.Context) {
+    slug := ctx.Param("slug")
+    userId := ctx.GetInt("userId")
+
+    link, err := repository.DetailLink(sl.Pool, slug, userId)
+    if err != nil {
+        ctx.JSON(404, gin.H{"success": false, "message": err.Error()})
+        return
+    }
+
+    ctx.JSON(201, gin.H{"success": true, "data": link})
+}
