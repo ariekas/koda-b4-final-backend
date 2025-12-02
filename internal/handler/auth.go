@@ -175,3 +175,33 @@ func (ac AuthController) Refresh(ctx *gin.Context) {
 		},
 	})
 }
+
+func (ac AuthController) Logout(ctx *gin.Context){
+	var sesstion models.Session
+
+	err := ctx.BindJSON(&sesstion)
+	if err != nil {
+		ctx.JSON(401, models.Response{
+			Success: false,
+			Message: "failed request type",
+		})
+		return
+	}
+
+	hash := sha256.Sum256([]byte(sesstion.RefreshToken))
+	hashToken := base64.StdEncoding.EncodeToString(hash[:])
+
+	err = repository.RevokedSesstion(ac.Pool, hashToken)
+	if err != nil {
+		ctx.JSON(400, models.Response{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(201, models.Response{
+		Success: true,
+		Message: "success logout",
+	})
+}
