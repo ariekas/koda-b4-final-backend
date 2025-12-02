@@ -40,7 +40,6 @@ func VerifToken() gin.HandlerFunc {
         }
 
         c.Set("userId", claims.UserId)
-        c.Set("role", claims.Role)
 
         c.Next()
     }

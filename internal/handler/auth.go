@@ -64,7 +64,7 @@ func (ac AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := middelware.GenerateToken(jwtToken, users.Role, users.Id)
+	token, err := middelware.GenerateToken(jwtToken, users.Id)
 	if err != nil {
 		fmt.Println("Error: Failed to generate token")
 	}
@@ -100,7 +100,6 @@ func (ac AuthController) Login(ctx *gin.Context) {
 		Data: gin.H{
 			"accessToken":  token,
 			"refreshToken": refreshToken,
-			"role":         users.Role,
 		},
 	})
 }
@@ -139,7 +138,7 @@ func (ac AuthController) Refresh(ctx *gin.Context) {
 	}
 
 	jwtToken := config.GetJwtToken()
-	access, err := middelware.GenerateToken(jwtToken, "user", session.UserId)
+	access, err := middelware.GenerateToken(jwtToken, session.UserId)
 	if err != nil {
 		ctx.JSON(401, models.Response{
 			Success: false,

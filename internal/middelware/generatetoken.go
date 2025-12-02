@@ -8,10 +8,9 @@ import (
 )
 
 
-func GenerateToken(jwtToken string, role string, userId int) (string, error) {
+func GenerateToken(jwtToken string, userId int) (string, error) {
     claims := models.UserClaims{
         UserId: userId,
-        Role: role,
         RegisteredClaims: jwt.RegisteredClaims{
             ExpiresAt: jwt.NewNumericDate(time.Now().Add(2 * time.Hour)),
             IssuedAt: jwt.NewNumericDate(time.Now()),

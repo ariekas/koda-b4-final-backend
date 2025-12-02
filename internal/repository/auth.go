@@ -33,13 +33,12 @@ func CreateUser(ctx *gin.Context, pool *pgxpool.Pool) (models.Users, error) {
 	}
 
 	err = pool.QueryRow(context.Background(),
-		"INSERT INTO users (username, email, password, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email, role, created_at, updated_at",
+		"INSERT INTO users (username, email, password, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email,  created_at, updated_at",
 		input.Username, input.Email, hash, now, now,
 	).Scan(
 		&input.Id,
 		&input.Username,
 		&input.Email,
-		&input.Role,
 		&input.CreatedAt,
 		&input.UpdatedAt,
 	)
@@ -52,7 +51,6 @@ func CreateUser(ctx *gin.Context, pool *pgxpool.Pool) (models.Users, error) {
 		Username:  input.Username,
 		Email:     input.Email,
 		Password:  string(hash),
-		Role:      input.Role,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -64,7 +62,7 @@ func FindUserEmail(pool *pgxpool.Pool, email string) (models.Users, error) {
 	var user models.Users
 
 	row := pool.QueryRow(context.Background(), `
-		SELECT id, username, email, password,role, created_at, updated_at
+		SELECT id, username, email, password, created_at, updated_at
 		FROM users
 		WHERE users.email = $1
 	`, email)
@@ -74,7 +72,6 @@ func FindUserEmail(pool *pgxpool.Pool, email string) (models.Users, error) {
 		&user.Username,
 		&user.Email,
 		&user.Password,
-		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
