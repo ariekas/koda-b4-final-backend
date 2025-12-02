@@ -9,7 +9,7 @@ import (
 
 
 func GenerateToken(jwtToken string, role string, userId int) (string, error) {
-    claims := models.Login{
+    claims := models.UserClaims{
         UserId: userId,
         Role: role,
         RegisteredClaims: jwt.RegisteredClaims{
