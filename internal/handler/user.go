@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"context"
+	"shortlink/internal/config"
 	"shortlink/internal/models"
 	"time"
+	"encoding/json"
 
 	"fmt"
 	"path/filepath"
@@ -28,6 +31,20 @@ func (uc UserController) GetProfile(ctx *gin.Context) {
 	}
 
 	userId := userIdInterface.(int)
+	cacheKey := fmt.Sprintf("user:%d:profile", userId)
+	
+	cachedData, err := config.RedisClient.Get(context.Background(), cacheKey).Result()
+	if err == nil {
+		var user models.Users 
+		if err := json.Unmarshal([]byte(cachedData), &user); err == nil {
+			ctx.JSON(200, models.Response{
+				Success: true,
+				Message: "Success get profile",
+				Data:    user,
+			})
+			return
+		}
+	}
 
 	user, err := repository.GetUserWithPic(uc.Pool, userId)
 	if err != nil {
@@ -36,6 +53,11 @@ func (uc UserController) GetProfile(ctx *gin.Context) {
 			Message: err.Error(),
 		})
 		return
+	}
+
+	userData, err := json.Marshal(user)
+	if err == nil {
+		config.RedisClient.Set(context.Background(), cacheKey, userData, 1*time.Hour)
 	}
 
 	ctx.JSON(200, models.Response{
@@ -131,6 +153,9 @@ func (uc UserController) UploadProfilePicture(ctx *gin.Context) {
 		})
 		return
 	}
+
+	cacheKey := fmt.Sprintf("user:%d:profile", userId)
+	config.RedisClient.Del(context.Background(), cacheKey)
 
 	ctx.JSON(200, models.Response{
 		Success: true,
