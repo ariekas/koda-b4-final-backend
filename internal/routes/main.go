@@ -7,6 +7,8 @@ import (
 
 func MainApiRoutes(r *gin.Engine, pool *pgxpool.Pool){
 	
+	r.Static("/uploads", "./uploads")
+
 	api := r.Group("/api/v1")
     {
         auth := api.Group("/auth")
