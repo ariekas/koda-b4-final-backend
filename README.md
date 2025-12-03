@@ -7,7 +7,7 @@ A URL shortening service built with Go, PostgreSQL, and Redis for caching.
 - **Go**: 1.24.10
 - **Database**: PostgreSQL
 - **Cache**: Redis
-- **Framework**: Native Go with custom routing
+- **Framework**: Gin
 
 ## Project Structure
 
