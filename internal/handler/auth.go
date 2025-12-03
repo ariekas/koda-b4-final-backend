@@ -42,7 +42,11 @@ func (ac AuthController) Login(ctx *gin.Context) {
 
 	err := ctx.BindJSON(&input)
 	if err != nil {
-		fmt.Println("Error : Failed type much json")
+		ctx.JSON(400, models.Response{
+			Success: false,
+			Message: "failed type much json",
+		})
+		return
 	}
 
 	jwtToken := config.GetJwtToken()
