@@ -11,6 +11,15 @@ type Users struct {
 	Username string `json:"username"`
 	Email string `json:"email"`
 	Password string `json:"password"`
+	Pic       string    `json:"pic"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type PicUser struct {
+	Id        int       `json:"id"`
+	Pic       string    `json:"pic"`
+	UserId    int       `json:"userId"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }

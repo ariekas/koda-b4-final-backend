@@ -22,6 +22,10 @@ func MainApiRoutes(r *gin.Engine, pool *pgxpool.Pool){
         {
             DashboardRouer(dashboard, pool)
         }
+        user := api.Group("/users")
+        {
+            UserRouter(user, pool)
+        }
     }
 	
 	
