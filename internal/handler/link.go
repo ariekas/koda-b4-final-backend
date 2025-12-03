@@ -176,7 +176,6 @@ func (sl ShortLinkController) GetAll(ctx *gin.Context) {
 			"userId":      link.UserId,
 			"originalUrl": link.OriginalUrl,
 			"shortUrl":    link.ShortUrl,
-			"status":      link.Status,
 			"createdAt":   link.CreatedAt,
 			"updatedAt":   link.UpdatedAt,
 			"totalClicks": totalClicks, 
