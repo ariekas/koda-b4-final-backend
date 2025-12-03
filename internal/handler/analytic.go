@@ -16,7 +16,6 @@ import (
 type DashboardController struct {
 	Pool *pgxpool.Pool
 }
-
 func (dc *DashboardController) GetDashboardStats(c *gin.Context) {
 	userIDInterface, exists := c.Get("userId")
 	if !exists {
@@ -38,9 +37,7 @@ func (dc *DashboardController) GetDashboardStats(c *gin.Context) {
 
 	ctx := context.Background()
 	rdb := config.RedisClient
-
 	statsKey := fmt.Sprintf("user:%d:stats", userID)
-	last7DaysKey := fmt.Sprintf("analytics:%d:7d", userID)
 
 	cachedStats, err := rdb.Get(ctx, statsKey).Result()
 	if err == nil {
@@ -95,34 +92,14 @@ func (dc *DashboardController) GetDashboardStats(c *gin.Context) {
 		return
 	}
 
-	var last7Days interface{}
-	cachedLast7Days, err := rdb.Get(ctx, last7DaysKey).Result()
-	if err == nil {
-		if err := json.Unmarshal([]byte(cachedLast7Days), &last7Days); err != nil {
-			last7Days, err = repository.GetLast7DaysVisits(userID, dc.Pool)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"success": false,
-					"error":   "Failed to fetch last 7 days visits",
-					"details": err.Error(),
-				})
-				return
-			}
-			last7DaysJSON, _ := json.Marshal(last7Days)
-			rdb.Set(ctx, last7DaysKey, last7DaysJSON, 1*time.Hour)
-		}
-	} else {
-		last7Days, err = repository.GetLast7DaysVisits(userID, dc.Pool)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"success": false,
-				"error":   "Failed to fetch last 7 days visits",
-				"details": err.Error(),
-			})
-			return
-		}
-		last7DaysJSON, _ := json.Marshal(last7Days)
-		rdb.Set(ctx, last7DaysKey, last7DaysJSON, 1*time.Hour)
+	last7Days, err := repository.GetLast7DaysVisits(userID, dc.Pool)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Failed to fetch last 7 days visits",
+			"details": err.Error(),
+		})
+		return
 	}
 
 	response := models.Analytic{
@@ -130,9 +107,8 @@ func (dc *DashboardController) GetDashboardStats(c *gin.Context) {
 		TotalVisits:  totalVisits,
 		AvgClickRate: avgClickRate,
 		VisitsGrowth: visitsGrowth,
-		Last7Days:    []models.DayVisit{},
+		Last7Days:    last7Days, 
 	}
-
 	statsJSON, err := json.Marshal(response)
 	if err == nil {
 		rdb.Set(ctx, statsKey, statsJSON, 5*time.Minute)
@@ -143,4 +119,4 @@ func (dc *DashboardController) GetDashboardStats(c *gin.Context) {
 		"data":    response,
 		"cached":  false,
 	})
-}	
+}
