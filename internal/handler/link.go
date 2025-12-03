@@ -7,14 +7,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mssola/user_agent"
 	"log"
-	"net"
-	"io"
-	"encoding/json"
-	"net/http"
 	"shortlink/internal/config"
 	"shortlink/internal/models"
 	"shortlink/internal/repository"
-	"strings"
 	"time"
 )
 
@@ -48,25 +43,6 @@ func getUserIDFromContext(ctx *gin.Context) *int {
 	return nil
 }
 
-func getClientIP(ctx *gin.Context) string {
-	forwarded := ctx.GetHeader("X-Forwarded-For")
-	if forwarded != "" {
-		ips := strings.Split(forwarded, ",")
-		return strings.TrimSpace(ips[0])
-	}
-
-	realIP := ctx.GetHeader("X-Real-IP")
-	if realIP != "" {
-		return realIP
-	}
-
-	ip, _, err := net.SplitHostPort(ctx.Request.RemoteAddr)
-	if err != nil {
-		return ctx.Request.RemoteAddr
-	}
-	return ip
-}
-
 func getDeviceType(ua *user_agent.UserAgent) string {
 	if ua.Mobile() {
 		return "mobile"
@@ -75,36 +51,6 @@ func getDeviceType(ua *user_agent.UserAgent) string {
 		return "bot"
 	}
 	return "desktop"
-}
-
-func getLocationFromIP(ipAddress string) (country string, city string) {
-	if ipAddress == "::1" || ipAddress == "127.0.0.1" || strings.HasPrefix(ipAddress, "192.168.") || strings.HasPrefix(ipAddress, "10.") {
-		return "Local", "Local"
-	}
-
-	url := fmt.Sprintf("http://ip-api.com/json/%s", ipAddress)
-	
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		log.Printf("Failed to get geolocation: %v", err)
-		return "", ""
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("Failed to read geolocation response: %v", err)
-		return "", ""
-	}
-
-	var geo models.GeoLocation
-	if err := json.Unmarshal(body, &geo); err != nil {
-		log.Printf("Failed to parse geolocation: %v", err)
-		return "", ""
-	}
-
-	return geo.Country, geo.City
 }
 
 func (slc ShortLinkController) Create(ctx *gin.Context) {
@@ -130,9 +76,13 @@ func (slc ShortLinkController) Create(ctx *gin.Context) {
 	}
 
 	redis := config.RedisClient
+
 	redis.Del(context.Background(), fmt.Sprintf("link:list:%d", userId))
-	
+
 	InvalidateUserDashboardCache(userId)
+
+	keyRedis := fmt.Sprintf("link:%s:destination", link.OriginalUrl)
+	redis.Set(context.Background(), keyRedis, link.OriginalUrl, 0)
 
 	ctx.JSON(201, models.Response{
 		Success: true,
@@ -189,24 +139,6 @@ func (sl ShortLinkController) GetAll(ctx *gin.Context) {
 func (sl ShortLinkController) DetailShortCode(ctx *gin.Context) {
 	slug := ctx.Param("slug")
 	userId := ctx.GetInt("userId")
-	redis := config.RedisClient
-
-	keyRedis := fmt.Sprintf("link:%s:destination", slug)
-
-	cacheVal, err := redis.Get(context.Background(), keyRedis).Result()
-	fmt.Println(cacheVal)
-
-	if err == nil {
-		ctx.JSON(200, gin.H{
-			"success": true,
-			"source":  "cache",
-			"data": gin.H{
-				"slug":         slug,
-				"original_url": cacheVal,
-			},
-		})
-		return
-	}
 
 	link, err := repository.DetailLink(sl.Pool, slug, userId)
 	if err != nil {
@@ -214,10 +146,15 @@ func (sl ShortLinkController) DetailShortCode(ctx *gin.Context) {
 		return
 	}
 
-	redis.Set(context.Background(), keyRedis, link.OriginalUrl, 0)
-
-	ctx.JSON(201, gin.H{"success": true, "data": link})
+	ctx.JSON(200, gin.H{
+		"success": true,
+		"data": gin.H{
+			"slug":         slug,
+			"original_url": link.OriginalUrl,
+		},
+	})
 }
+
 
 func (sl ShortLinkController) Redirect(ctx *gin.Context) {
 	slug := ctx.Param("slug")
@@ -281,24 +218,21 @@ func (sl ShortLinkController) Redirect(ctx *gin.Context) {
 	redis.Incr(context.Background(), keyClicks)
 
 	userAgent := ctx.Request.UserAgent()
-	referer := ctx.Request.Referer()
-	ipAddr := getClientIP(ctx)
 	userID := getUserIDFromContext(ctx)
 
 	go func() {
 		ua := user_agent.New(userAgent)
 		browserName, browserVersion := ua.Browser()
 		
-		country, city := getLocationFromIP(ipAddr)
 
 		clickData := models.ClickData{
 			ShortLinkID: shortLinkID,
 			UserID:      userID,
-			IPAddress:   ipAddr,
-			Referer:     referer,
+			IPAddress:   "",
+			Referer:     "",
 			UserAgent:   userAgent,
-			Country:     country,
-			City:        city,
+			Country:     "",
+			City:        "",
 			DeviceType:  getDeviceType(ua),
 			Browser:     fmt.Sprintf("%s %s", browserName, browserVersion),
 			OS:          ua.OS(),

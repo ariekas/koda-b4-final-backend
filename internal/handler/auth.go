@@ -4,11 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"encoding/json"
 	"shortlink/internal/config"
 	"shortlink/internal/middelware"
 	"shortlink/internal/models"
 	"shortlink/internal/repository"
 	"time"
+	"context"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -40,8 +42,7 @@ func (ac AuthController) Login(ctx *gin.Context) {
 	var input models.InputLogin
 	now := time.Now()
 
-	err := ctx.BindJSON(&input)
-	if err != nil {
+	if err := ctx.BindJSON(&input); err != nil {
 		ctx.JSON(400, models.Response{
 			Success: false,
 			Message: "failed type much json",
@@ -70,14 +71,18 @@ func (ac AuthController) Login(ctx *gin.Context) {
 
 	token, err := middelware.GenerateToken(jwtToken, users.Id)
 	if err != nil {
-		fmt.Println("Error: Failed to generate token")
+		ctx.JSON(500, models.Response{
+			Success: false,
+			Message: "failed to generate token",
+		})
+		return
 	}
 
 	refreshToken, hash, err := middelware.GenerateRefreshToken()
 	if err != nil {
-		ctx.JSON(401, models.Response{
+		ctx.JSON(500, models.Response{
 			Success: false,
-			Message: err.Error(),
+			Message: "failed to generate refresh token",
 		})
 		return
 	}
@@ -94,10 +99,14 @@ func (ac AuthController) Login(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(401, models.Response{
 			Success: false,
-			Message: "failed to save sesstion",
+			Message: "failed to save session",
 		})
 		return
 	}
+
+	profileKey := fmt.Sprintf("user:%d:profile", users.Id)
+	userData, _ := json.Marshal(users)
+	config.RedisClient.Set(context.Background(), profileKey, userData, time.Hour)
 
 	ctx.JSON(201, models.Response{
 		Success: true,
@@ -108,6 +117,7 @@ func (ac AuthController) Login(ctx *gin.Context) {
 		},
 	})
 }
+
 
 func (ac AuthController) Refresh(ctx *gin.Context) {
 	var refreshToken models.Session
@@ -180,7 +190,7 @@ func (ac AuthController) Refresh(ctx *gin.Context) {
 	})
 }
 
-func (ac AuthController) Logout(ctx *gin.Context){
+func (ac AuthController) Logout(ctx *gin.Context) {
 	var sesstion models.Session
 
 	err := ctx.BindJSON(&sesstion)

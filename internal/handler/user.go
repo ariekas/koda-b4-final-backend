@@ -19,7 +19,6 @@ import (
 type UserController struct {
 	Pool *pgxpool.Pool
 }
-
 func (uc UserController) GetProfile(ctx *gin.Context) {
 	userIdInterface, exists := ctx.Get("userId")
 	if !exists {
@@ -32,14 +31,14 @@ func (uc UserController) GetProfile(ctx *gin.Context) {
 
 	userId := userIdInterface.(int)
 	cacheKey := fmt.Sprintf("user:%d:profile", userId)
-	
+
 	cachedData, err := config.RedisClient.Get(context.Background(), cacheKey).Result()
 	if err == nil {
-		var user models.Users 
-		if err := json.Unmarshal([]byte(cachedData), &user); err == nil {
+		var user models.Users
+		if json.Unmarshal([]byte(cachedData), &user) == nil {
 			ctx.JSON(200, models.Response{
 				Success: true,
-				Message: "Success get profile",
+				Message: "Success get profile (cache)",
 				Data:    user,
 			})
 			return
@@ -55,14 +54,9 @@ func (uc UserController) GetProfile(ctx *gin.Context) {
 		return
 	}
 
-	userData, err := json.Marshal(user)
-	if err == nil {
-		config.RedisClient.Set(context.Background(), cacheKey, userData, 1*time.Hour)
-	}
-
 	ctx.JSON(200, models.Response{
 		Success: true,
-		Message: "Success get profile",
+		Message: "Success get profile (db)",
 		Data:    user,
 	})
 }
