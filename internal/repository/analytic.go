@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"shortlink/internal/models"
 	"time"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// GetTotalLinks - mendapatkan total links user
 func GetTotalLinks(userID int, pool *pgxpool.Pool) (int, error) {
 	var total int
 	err := pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM short_links WHERE userid = $1", userID).Scan(&total)
@@ -24,7 +24,7 @@ func GetTotalVisits(userID int, pool *pgxpool.Pool) (int, error) {
 	err := pool.QueryRow(context.Background(), `
 		SELECT COUNT(c.id) 
 		FROM clicks c
-		INNER JOIN short_links sl ON c.shortLinkId = sl.id
+		INNER JOIN short_links sl ON c.shortlinkid = sl.id
 		WHERE sl.userid = $1
 	`, userID).Scan(&total)
 	
@@ -41,7 +41,7 @@ func GetAvgClickRate(userID int, pool *pgxpool.Pool) (float64, error) {
 		FROM (
 			SELECT sl.id, COUNT(c.id) as click_count
 			FROM short_links sl
-			LEFT JOIN clicks c ON sl.id = c.shortLinkId
+			LEFT JOIN clicks c ON sl.id = c.shortlinkid
 			WHERE sl.userid = $1
 			GROUP BY sl.id
 		) as link_clicks
@@ -58,14 +58,13 @@ func GetAvgClickRate(userID int, pool *pgxpool.Pool) (float64, error) {
 	return avgRate.Float64, nil
 }
 
-// GetVisitsGrowth - mendapatkan persentase pertumbuhan visits (7 hari terakhir vs 7 hari sebelumnya)
 func GetVisitsGrowth(userID int, pool *pgxpool.Pool) (float64, error) {
 	var lastWeek, previousWeek int
 
 	err := pool.QueryRow(context.Background(), `
 		SELECT COUNT(c.id)
 		FROM clicks c
-		INNER JOIN short_links sl ON c.shortLinkId = sl.id
+		INNER JOIN short_links sl ON c.shortlinkid = sl.id
 		WHERE sl.userid = $1 
 		AND c.created_at >= NOW() - INTERVAL '7 days'
 	`, userID).Scan(&lastWeek)
@@ -77,7 +76,7 @@ func GetVisitsGrowth(userID int, pool *pgxpool.Pool) (float64, error) {
 	err = pool.QueryRow(context.Background(), `
 		SELECT COUNT(c.id)
 		FROM clicks c
-		INNER JOIN short_links sl ON c.shortLinkId = sl.id
+		INNER JOIN short_links sl ON c.shortlinkid = sl.id
 		WHERE sl.userid = $1 
 		AND c.created_at >= NOW() - INTERVAL '14 days'
 		AND c.created_at < NOW() - INTERVAL '7 days'
@@ -97,22 +96,22 @@ func GetVisitsGrowth(userID int, pool *pgxpool.Pool) (float64, error) {
 	growth := float64(lastWeek-previousWeek) / float64(previousWeek) * 100
 	return growth, nil
 }
-
 func GetLast7DaysVisits(userID int, pool *pgxpool.Pool) ([]models.DayVisit, error) {
-	rows, err := pool.Query(context.Background(), `
+	query := `
 		SELECT 
 			DATE(c.created_at) as visit_date,
 			COUNT(c.id) as visit_count
 		FROM clicks c
-		INNER JOIN short_links sl ON c.shortLinkId = sl.id
+		INNER JOIN short_links sl ON c.shortlinkid = sl.id
 		WHERE sl.userid = $1 
 		AND c.created_at >= NOW() - INTERVAL '7 days'
 		GROUP BY DATE(c.created_at)
 		ORDER BY visit_date ASC
-	`, userID)
-
+	`
+	
+	rows, err := pool.Query(context.Background(), query, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query failed: %w", err)
 	}
 	defer rows.Close()
 
@@ -122,10 +121,14 @@ func GetLast7DaysVisits(userID int, pool *pgxpool.Pool) ([]models.DayVisit, erro
 		var date time.Time
 		err := rows.Scan(&date, &visit.Count)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan failed: %w", err)
 		}
 		visit.Date = date.Format("2006-01-02")
 		visits = append(visits, visit)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
 	return visits, nil
