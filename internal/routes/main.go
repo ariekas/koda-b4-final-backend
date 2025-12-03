@@ -18,6 +18,10 @@ func MainApiRoutes(r *gin.Engine, pool *pgxpool.Pool){
         {
             LinkRoutes(links, pool)
         }
+        dashboard := api.Group("/dashboard")
+        {
+            DashboardRouer(dashboard, pool)
+        }
     }
 	
 	
