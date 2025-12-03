@@ -146,6 +146,7 @@ func (slc ShortLinkController) Create(ctx *gin.Context) {
 
 func (sl ShortLinkController) GetAll(ctx *gin.Context) {
 	userId := ctx.GetInt("userId")
+	redis := config.RedisClient
 
 	links, err := repository.ListLink(sl.Pool, userId)
 	if err != nil {
@@ -153,7 +154,37 @@ func (sl ShortLinkController) GetAll(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(201, gin.H{"success": true, "data": links})
+	enrichedLinks := make([]map[string]interface{}, 0)
+	
+	for _, link := range links {
+		keyClicks := fmt.Sprintf("link:%s:clicks", link.ShortUrl)
+		redisClicks, err := redis.Get(context.Background(), keyClicks).Int64()
+		
+		var totalClicks int64
+		if err == nil {
+			totalClicks = redisClicks
+		} else {
+			clickCount, err := repository.GetClickCount(sl.Pool, link.Id)
+			if err == nil {
+				totalClicks = clickCount
+				redis.Set(context.Background(), keyClicks, totalClicks, 0)
+			}
+		}
+
+		enrichedLink := map[string]interface{}{
+			"id":          link.Id,
+			"userId":      link.UserId,
+			"originalUrl": link.OriginalUrl,
+			"shortUrl":    link.ShortUrl,
+			"status":      link.Status,
+			"createdAt":   link.CreatedAt,
+			"updatedAt":   link.UpdatedAt,
+			"totalClicks": totalClicks, 
+		}
+		enrichedLinks = append(enrichedLinks, enrichedLink)
+	}
+
+	ctx.JSON(200, gin.H{"success": true, "data": enrichedLinks})
 }
 
 func (sl ShortLinkController) DetailShortCode(ctx *gin.Context) {
