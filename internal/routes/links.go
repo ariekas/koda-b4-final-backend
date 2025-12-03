@@ -13,7 +13,7 @@ func LinkRoutes(r *gin.RouterGroup, pool *pgxpool.Pool) {
 
 	link := r.Group("", middelware.VerifToken())
 	{
-		link.POST("/", linkController.Create)
+		link.POST("", linkController.Create)
 		link.GET("", linkController.GetAll)
 		link.GET("/:slug", linkController.DetailShortCode) 
 		link.PATCH("/:slug", linkController.Update)

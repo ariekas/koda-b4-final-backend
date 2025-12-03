@@ -75,6 +75,7 @@ func (ac AuthController) Login(ctx *gin.Context) {
 			Success: false,
 			Message: err.Error(),
 		})
+		return
 	}
 
 	session := models.Session{
