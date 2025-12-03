@@ -8,8 +8,8 @@ import (
 	"github.com/mssola/user_agent"
 	"log"
 	"net"
-		"io"
-		"encoding/json"
+	"io"
+	"encoding/json"
 	"net/http"
 	"shortlink/internal/config"
 	"shortlink/internal/models"
@@ -20,6 +20,18 @@ import (
 
 type ShortLinkController struct {
 	Pool *pgxpool.Pool
+}
+
+func InvalidateUserDashboardCache(userID int) {
+	rdb := config.RedisClient
+	ctx := context.Background()
+	
+	statsKey := fmt.Sprintf("user:%d:stats", userID)
+	last7DaysKey := fmt.Sprintf("analytics:%d:7d", userID)
+	
+	rdb.Del(ctx, statsKey, last7DaysKey)
+	
+	log.Printf("Invalidated dashboard cache for user %d\n", userID)
 }
 
 func getUserIDFromContext(ctx *gin.Context) *int {
@@ -119,6 +131,8 @@ func (slc ShortLinkController) Create(ctx *gin.Context) {
 
 	redis := config.RedisClient
 	redis.Del(context.Background(), fmt.Sprintf("link:list:%d", userId))
+	
+	InvalidateUserDashboardCache(userId)
 
 	ctx.JSON(201, models.Response{
 		Success: true,
@@ -184,6 +198,7 @@ func (sl ShortLinkController) Redirect(ctx *gin.Context) {
 	keyClicks := fmt.Sprintf("link:%s:clicks", slug)
 
 	var shortLinkID int
+	var linkOwnerID int
 	destination, err := redis.Get(context.Background(), keyDest).Result()
 
 	if err != nil {
@@ -197,9 +212,11 @@ func (sl ShortLinkController) Redirect(ctx *gin.Context) {
 		}
 		destination = link.OriginalUrl
 		shortLinkID = link.Id
+		linkOwnerID = link.UserId 
 
 		redis.Set(context.Background(), keyDest, destination, 0)
 		redis.Set(context.Background(), keyID, shortLinkID, 0)
+		redis.Set(context.Background(), fmt.Sprintf("link:%s:owner", slug), linkOwnerID, 0)
 	} else {
 		idResult, err := redis.Get(context.Background(), keyID).Result()
 		if err != nil {
@@ -212,9 +229,22 @@ func (sl ShortLinkController) Redirect(ctx *gin.Context) {
 				return
 			}
 			shortLinkID = link.Id
+			linkOwnerID = link.UserId
 			redis.Set(context.Background(), keyID, shortLinkID, 0)
+			redis.Set(context.Background(), fmt.Sprintf("link:%s:owner", slug), linkOwnerID, 0)
 		} else {
 			fmt.Sscanf(idResult, "%d", &shortLinkID)
+			
+			ownerResult, err := redis.Get(context.Background(), fmt.Sprintf("link:%s:owner", slug)).Result()
+			if err != nil {
+				link, _ := repository.FindShortLink(sl.Pool, slug)
+				if link != nil {
+					linkOwnerID = link.UserId
+					redis.Set(context.Background(), fmt.Sprintf("link:%s:owner", slug), linkOwnerID, 0)
+				}
+			} else {
+				fmt.Sscanf(ownerResult, "%d", &linkOwnerID)
+			}
 		}
 	}
 
@@ -224,7 +254,6 @@ func (sl ShortLinkController) Redirect(ctx *gin.Context) {
 	referer := ctx.Request.Referer()
 	ipAddr := getClientIP(ctx)
 	userID := getUserIDFromContext(ctx)
-
 
 	go func() {
 		ua := user_agent.New(userAgent)
@@ -248,6 +277,10 @@ func (sl ShortLinkController) Redirect(ctx *gin.Context) {
 
 		if err := repository.InsertClick(sl.Pool, clickData); err != nil {
 			log.Printf("Failed to record click for link %d: %v", shortLinkID, err)
+		} else {
+			if linkOwnerID > 0 {
+				InvalidateUserDashboardCache(linkOwnerID)
+			}
 		}
 	}()
 
@@ -278,6 +311,17 @@ func (sl ShortLinkController) Update(ctx *gin.Context) {
 	redis.Del(context.Background(), fmt.Sprintf("link:%s:destination", slug))
 	redis.Del(context.Background(), fmt.Sprintf("link:%s:id", slug))
 	redis.Del(context.Background(), fmt.Sprintf("link:%s:clicks", slug))
+	redis.Del(context.Background(), fmt.Sprintf("link:%s:owner", slug))
+	
+	InvalidateUserDashboardCache(userId)
+	
+	if body.CustomSlug != nil && *body.CustomSlug != slug {
+		redis.Del(context.Background(), fmt.Sprintf("link:%s:destination", *body.CustomSlug))
+		redis.Del(context.Background(), fmt.Sprintf("link:%s:id", *body.CustomSlug))
+		redis.Del(context.Background(), fmt.Sprintf("link:%s:clicks", *body.CustomSlug))
+		redis.Del(context.Background(), fmt.Sprintf("link:%s:owner", *body.CustomSlug))
+	}
+
 	ctx.JSON(201, gin.H{"success": true, "message": "Short link updated", "data": link})
 }
 
@@ -295,6 +339,9 @@ func (sl ShortLinkController) Delete(ctx *gin.Context) {
 	redis.Del(context.Background(), fmt.Sprintf("link:%s:destination", slug))
 	redis.Del(context.Background(), fmt.Sprintf("link:%s:id", slug))
 	redis.Del(context.Background(), fmt.Sprintf("link:%s:clicks", slug))
+	redis.Del(context.Background(), fmt.Sprintf("link:%s:owner", slug))
+	
+	InvalidateUserDashboardCache(userId)
 
 	ctx.JSON(201, gin.H{"success": true, "message": "Short link deleted"})
 }
