@@ -184,3 +184,46 @@ func DeleteLink(pool *pgxpool.Pool, userId int, slug string) error {
     )
     return err
 }
+
+func InsertClick(pool *pgxpool.Pool, click models.ClickData) error {
+	query := `
+		INSERT INTO clicks (
+			shortLinkId, userId, ipAddress, referer, userAgent,
+			country, city, deviceType, browser, os, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`
+
+	_, err := pool.Exec(context.Background(), query,
+		click.ShortLinkID,
+		click.UserID,
+		click.IPAddress,
+		click.Referer,
+		click.UserAgent,
+		click.Country,
+		click.City,
+		click.DeviceType,
+		click.Browser,
+		click.OS,
+		click.CreatedAt,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert click: %w", err)
+	}
+
+	return nil
+}
+
+func GetClickStats(pool *pgxpool.Pool, shortLinkID int) (int, error) {
+	var count int
+	err := pool.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM clicks WHERE shortLinkId = $1",
+		shortLinkID,
+	).Scan(&count)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to get click stats: %w", err)
+	}
+
+	return count, nil
+}
